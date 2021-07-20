@@ -9,12 +9,18 @@ import UIKit
 
 class ViewController: UITableViewController {
     var petitions = [Petition]()
+    var filteredPetitions = [Petition]()
 
     override func viewDidLoad() {
         super.viewDidLoad()
         
+        navigationItem.rightBarButtonItem = UIBarButtonItem(title: "CREDITS", style: .plain, target: self, action: #selector(showCredits))
+        let filteredButton = UIBarButtonItem(barButtonSystemItem: .search, target: self, action: #selector(filterPetition))
+        let resetButton = UIBarButtonItem(barButtonSystemItem: .refresh, target: self, action: #selector(resetList))
+        navigationItem.leftBarButtonItems = [filteredButton, resetButton]
+        
         let urlString: String
-            
+        
         if navigationController?.tabBarItem.tag == 0 {
             urlString = "https://www.hackingwithswift.com/samples/petitions-1.json"
         } else {
@@ -25,10 +31,42 @@ class ViewController: UITableViewController {
             if let data = try? Data(contentsOf: url) {
                 //we're OK to parse
                 parse(json: data)
+                filteredPetitions = petitions
                 return
             }
+            showError()
         }
-        showError()
+    }
+    
+    @objc func showCredits() {
+        let ac = UIAlertController(title: "Data source", message: "These petitions come from the: \nWe The People API of the Whitehouse.", preferredStyle: .alert)
+        ac.addAction(UIAlertAction(title: "OK", style: .default, handler: nil))
+        
+        present(ac, animated: true)
+    }
+    
+    @objc func filterPetition() {
+        let ac = UIAlertController(title: "Search for Petition", message: "Enter your search here.", preferredStyle: .alert)
+        ac.addTextField()
+
+        let filterAction = UIAlertAction(title: "Filter", style: .default) {
+            [weak self, weak ac] _ in
+            guard let filterWord = ac?.textFields?[0].text else { return }
+            self?.submit(filterWord)
+        }
+        
+        ac.addAction(filterAction)
+        present(ac, animated: true)
+    }
+    
+    @objc func resetList(action: UIAlertAction) {
+        filteredPetitions = petitions
+        tableView.reloadData()
+    }
+    
+    func submit(_ answer: String) {
+        filteredPetitions = filteredPetitions.filter { $0.title.contains(answer) }
+        self.tableView.reloadData()
     }
     
     func showError() {
@@ -47,12 +85,12 @@ class ViewController: UITableViewController {
     }
     
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        petitions.count
+        filteredPetitions.count
     }
     
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: "Cell", for: indexPath)
-        let petition = petitions[indexPath.row]
+        let petition = filteredPetitions[indexPath.row]
         cell.textLabel?.text = petition.title
         cell.detailTextLabel?.text = petition.body
         return cell
