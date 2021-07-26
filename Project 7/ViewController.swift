@@ -10,7 +10,7 @@ import UIKit
 class ViewController: UITableViewController {
     var petitions = [Petition]()
     var filteredPetitions = [Petition]()
-
+    
     override func viewDidLoad() {
         super.viewDidLoad()
         
@@ -19,6 +19,10 @@ class ViewController: UITableViewController {
         let resetButton = UIBarButtonItem(barButtonSystemItem: .refresh, target: self, action: #selector(resetList))
         navigationItem.leftBarButtonItems = [filteredButton, resetButton]
         
+        performSelector(inBackground: #selector(fetchJSON), with: nil)
+    }
+    
+    @objc func fetchJSON() {
         let urlString: String
         
         if navigationController?.tabBarItem.tag == 0 {
@@ -27,16 +31,14 @@ class ViewController: UITableViewController {
             urlString = "https://www.hackingwithswift.com/samples/petitions-2.json"
         }
         
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            if let url = URL(string: urlString) {
-                if let data = try? Data(contentsOf: url)  {
-                    //we're OK to parse
-                    self?.parse(json: data)
-                    return
-                }
+        if let url = URL(string: urlString) {
+            if let data = try? Data(contentsOf: url)  {
+                //we're OK to parse
+                parse(json: data)
+                return
             }
-            self?.showError()
         }
+        performSelector(onMainThread: #selector(showError), with: nil, waitUntilDone: false)
     }
     
     @objc func showCredits() {
@@ -49,7 +51,7 @@ class ViewController: UITableViewController {
     @objc func filterPetition() {
         let ac = UIAlertController(title: "Search for Petition", message: "Enter your search here.", preferredStyle: .alert)
         ac.addTextField()
-
+        
         let filterAction = UIAlertAction(title: "Filter", style: .default) {
             [weak self, weak ac] _ in
             guard let filterWord = ac?.textFields?[0].text else { return }
@@ -70,13 +72,10 @@ class ViewController: UITableViewController {
         self.tableView.reloadData()
     }
     
-    func showError() {
-        
-        DispatchQueue.main.async { [weak self] in
-            let ac = UIAlertController(title: "Loading error", message: "There was a problem loading the feed; please check your connection and try again.", preferredStyle: .alert)
-            ac.addAction(UIAlertAction(title: "OK", style: .default))
-            self?.present(ac, animated: true)
-        }
+    @objc func showError() {
+        let ac = UIAlertController(title: "Loading error", message: "There was a problem loading the feed; please check your connection and try again.", preferredStyle: .alert)
+        ac.addAction(UIAlertAction(title: "OK", style: .default))
+        present(ac, animated: true)
     }
     
     func parse(json: Data) {
@@ -84,10 +83,9 @@ class ViewController: UITableViewController {
         
         if let jsonPetitions = try? decoder.decode(Petitions.self, from: json) {
             petitions = jsonPetitions.results
-            
-            DispatchQueue.main.async { [weak self] in
-                self?.tableView.reloadData()
-            }
+            tableView.performSelector(onMainThread: #selector(UITableView.reloadData), with: nil, waitUntilDone: false)
+        } else {
+            performSelector(onMainThread: #selector(showError), with: nil, waitUntilDone: false)
         }
     }
     
@@ -109,4 +107,3 @@ class ViewController: UITableViewController {
         navigationController?.pushViewController(vc, animated: true)
     }
 }
-
